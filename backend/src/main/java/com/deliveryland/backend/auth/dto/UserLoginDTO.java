@@ -1,4 +1,4 @@
-package com.deliveryland.backend.user.dto;
+package com.deliveryland.backend.auth.dto;
 
 import jakarta.validation.constraints.*;
 import lombok.*;

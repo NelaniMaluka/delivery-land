@@ -1,6 +1,6 @@
-package com.deliveryland.backend.user.dto;
+package com.deliveryland.backend.auth.dto;
 
-import com.deliveryland.backend.user.model.UserRole;
+import com.deliveryland.backend.auth.model.UserRole;
 import jakarta.validation.constraints.*;
 import lombok.*;
 
@@ -11,9 +11,13 @@ import lombok.*;
 @Builder
 public class UserCreateDTO {
 
-    @NotBlank(message = "Full name is required")
-    @Size(max = 100, message = "Full name cannot exceed 100 characters")
-    private String fullName;
+    @NotBlank(message = "First name is required")
+    @Size(max = 50, message = "First name cannot exceed 50 characters")
+    private String firstName;
+
+    @NotBlank(message = "Last name is required")
+    @Size(max = 50, message = "Last name cannot exceed 50 characters")
+    private String lastName;
 
     @NotBlank(message = "Email is required")
     @Email(message = "Email must be valid")

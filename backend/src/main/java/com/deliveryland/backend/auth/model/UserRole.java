@@ -1,4 +1,4 @@
-package com.deliveryland.backend.user.model;
+package com.deliveryland.backend.auth.model;
 
 public enum UserRole {
     CUSTOMER,

@@ -1,11 +1,14 @@
 package com.deliveryland.backend.user.model;
 
-import com.deliveryland.backend.location.Location;
+import com.deliveryland.backend.common.security.ApplicationUserRole;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.*;
 import lombok.*;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.time.LocalDateTime;
+import java.util.Set;
 import java.util.UUID;
 
 @Entity
@@ -15,15 +18,22 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class User {
+public class User implements UserDetails {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
-    @NotBlank(message = "Full name is required")
-    @Size(max = 100, message = "Full name cannot exceed 100 characters")
-    private String fullName;
+    @NotBlank(message = "First name is required")
+    @Size(max = 50, message = "First name cannot exceed 50 characters")
+    private String firstName;
+
+    @NotBlank(message = "Last name is required")
+    @Size(max = 50, message = "Last name cannot exceed 50 characters")
+    private String lastName;
+
+    @Column(unique = true, nullable = false)
+    private String username;
 
     @NotBlank(message = "Email is required")
     @Email(message = "Email must be valid")
@@ -38,18 +48,13 @@ public class User {
     @Pattern(regexp = "\\+?[0-9]{10,15}", message = "Contact number must be valid")
     private String contactNumber;
 
-    // Each user has a default delivery location
-    @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "location_id", nullable = false)
-    private Location location;
-
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private UserRole role;
-
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private AccountStatus accountStatus;
+
+    @Builder.Default
+    @Column(nullable = false)
+    private boolean enabled = false;
 
     private LocalDateTime createdAt;
 
@@ -59,16 +64,55 @@ public class User {
     public void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+        this.username = this.email;
 
+        // Default account status based on role
         if (this.accountStatus == null) {
-            this.accountStatus = (this.role == UserRole.CUSTOMER)
-                    ? AccountStatus.ACTIVE
-                    : AccountStatus.PENDING_VERIFICATION;
+            switch (this.role) {
+                case CUSTOMER-> this.accountStatus = AccountStatus.ACTIVE;
+                case DRIVER, STORE_OWNER, ADMIN -> this.accountStatus = AccountStatus.PENDING_VERIFICATION;
+            }
         }
     }
 
     @PreUpdate
     public void onUpdate() {
         this.updatedAt = LocalDateTime.now();
+        this.username = this.email;
+    }
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ApplicationUserRole role = ApplicationUserRole.CUSTOMER;
+
+    @Override
+    public Set<SimpleGrantedAuthority> getAuthorities() {
+        return role.grantedAuthorities();
+    }
+
+    @Override
+    public boolean isAccountNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isAccountNonLocked() {
+        return true;
+    }
+
+    @Override
+    public boolean isCredentialsNonExpired() {
+        return true;
+    }
+
+    @Override
+    public boolean isEnabled() {
+        return enabled;
+    }
+
+    @Override
+    public String getUsername() {
+        return email;
     }
 }
