@@ -4,6 +4,7 @@ import com.deliveryland.backend.auth.dto.LoginResponse;
 import com.deliveryland.backend.auth.dto.UserCreateDTO;
 import com.deliveryland.backend.auth.dto.UserLoginDTO;
 import com.deliveryland.backend.auth.dto.VerifyUserDto;
+import com.deliveryland.backend.common.dto.ApiResponseDTO;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,17 +36,21 @@ public class AuthController {
     @Operation(summary = "Register a new user account", description = "Creates a user and sends a verification email.")
     @ApiResponse(responseCode = "201", description = "User registered successfully")
     @PostMapping("/public/auth/register")
-    public ResponseEntity<String> register(@RequestBody @Valid UserCreateDTO dto) {
+    public ResponseEntity<ApiResponseDTO> register(@RequestBody @Valid UserCreateDTO dto) {
         authService.register(dto);
-        return ResponseEntity.status(HttpStatus.CREATED).body("We have sent a verification email. Please verify your email.");
+
+        return ResponseEntity
+                .status(HttpStatus.CREATED)
+                .body(new ApiResponseDTO("We have sent a verification email. Please verify your email."));
     }
 
     @Operation(summary = "Authenticate user and generate token", description = "Validates the provided credentials and returns a JWT token upon successful login.")
     @ApiResponse(responseCode = "200", description = "Login successful, token returned")
     @PostMapping("/public/auth/login")
-    public ResponseEntity<LoginResponse> login(@RequestBody @Valid UserLoginDTO dto) {
+    public ResponseEntity<ApiResponseDTO> login(@RequestBody @Valid UserLoginDTO dto) {
         LoginResponse response = authService.logIn(dto);
-        return ResponseEntity.ok(response);
+
+        return ResponseEntity.ok(new ApiResponseDTO("Login successful", response));
     }
 
     @Operation(summary = "Log out the authenticated user", description = "Logs out the currently authenticated user by clearing the security context "
@@ -53,36 +58,36 @@ public class AuthController {
             "and invalidating the session. Returns a success message upon completion.")
     @ApiResponse(responseCode = "200", description = "User successfully logged out")
     @PostMapping("/user/auth/log-out")
-    public ResponseEntity<String> logOut(HttpServletRequest request, HttpServletResponse response) {
+    public ResponseEntity<ApiResponseDTO> logOut(HttpServletRequest request, HttpServletResponse response) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+
         if (auth != null) {
             new SecurityContextLogoutHandler().logout(request, response, auth);
         }
 
         String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            authHeader.substring(7);
-        } else {
+        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
             throw new RuntimeException("No Authorization header provided or token is missing.");
         }
 
-        return ResponseEntity.ok("Logged out successfully");
+        return ResponseEntity.ok(new ApiResponseDTO("Logged out successfully"));
     }
 
     @Operation(summary = "Verify user account", description = "Verifies a user's account using the provided verification code.")
     @ApiResponse(responseCode = "200", description = "Account successfully verified")
     @PostMapping("/public/auth/verify")
-    public ResponseEntity<?> verifyUser(@Valid @RequestBody VerifyUserDto dto) {
+    public ResponseEntity<ApiResponseDTO> verifyUser(@Valid @RequestBody VerifyUserDto dto) {
         LoginResponse response = authService.verifyUser(dto);
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(new ApiResponseDTO("Account successfully verified", response));
     }
 
     @Operation(summary = "Resend verification code", description = "Sends a new verification code to the specified email address.")
     @ApiResponse(responseCode = "200", description = "Verification code resent successfully")
     @PostMapping("/public/auth/resend-verification")
-    public ResponseEntity<?> resetVerification(
-            @RequestParam @NotBlank(message = "Email must not be blank") @Email(message = "Email should be valid") String email) {
+    public ResponseEntity<ApiResponseDTO> resetVerification(
+            @RequestParam @NotBlank(message = "Email must not be blank")
+            @Email(message = "Email should be valid") String email) {
         authService.resendVerificationCode(email);
-        return ResponseEntity.ok("Successfully sent a new verification code.");
+        return ResponseEntity.ok(new ApiResponseDTO("Successfully sent a new verification code.", email));
     }
 }

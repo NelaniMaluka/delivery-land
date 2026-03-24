@@ -3,8 +3,11 @@ package com.deliveryland.backend.user.dto;
 import com.deliveryland.backend.user.model.AccountStatus;
 import com.deliveryland.backend.user.model.User;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import lombok.Builder;
+
 import java.util.UUID;
 
+@Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public record UserResponse(
         UUID id,
