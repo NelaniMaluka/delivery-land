@@ -1,6 +1,6 @@
 package com.deliveryland.backend.auth;
 
-import com.deliveryland.backend.auth.model.UserVerification;
+import com.deliveryland.backend.auth.model.VerificationToken;
 import com.deliveryland.backend.user.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
@@ -14,13 +14,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface UserVerificationRepository extends JpaRepository<UserVerification, UUID> {
-    Optional<UserVerification> findByUserAndToken(User user, String token);
+public interface VerificationTokenRepository extends JpaRepository<VerificationToken, UUID> {
+    Optional<VerificationToken> findByUserAndToken(User user, String token);
 
-    List<UserVerification> findByUser(User user);
+    List<VerificationToken> findByUser(User user);
 
     @Modifying
     @Transactional
-    @Query("DELETE FROM UserVerification uv WHERE uv.user = :user")
+    @Query("DELETE FROM VerificationToken uv WHERE uv.user = :user")
     int deleteByUser(@Param("user") User user);
 }
