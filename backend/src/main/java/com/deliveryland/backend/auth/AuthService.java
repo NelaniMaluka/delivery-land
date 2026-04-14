@@ -9,7 +9,9 @@ import com.deliveryland.backend.auth.model.VerificationToken;
 import com.deliveryland.backend.common.notification.EmailService;
 import com.deliveryland.backend.common.security.ApplicationUserRole;
 import com.deliveryland.backend.common.security.JwtService;
+import com.deliveryland.backend.common.util.TokenGenerator;
 import com.deliveryland.backend.user.UserRepository;
+import com.deliveryland.backend.user.model.AccountStatus;
 import com.deliveryland.backend.user.model.User;
 import com.deliveryland.backend.auth.model.VerificationType;
 import jakarta.validation.ValidationException;
@@ -25,7 +27,6 @@ import org.springframework.web.server.ResponseStatusException;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 @Log4j2
 @Service
@@ -72,7 +73,7 @@ public class AuthService {
 
         // Generate new verification entity
         VerificationToken verificationToken = VerificationToken.builder()
-                .token(generateToken())
+                .token(TokenGenerator.generateShortToken())
                 .type(VerificationType.EMAIL_VERIFY)
                 .user(newUser)
                 .build();
@@ -106,6 +107,13 @@ public class AuthService {
         if (!existingUser.isEnabled()) {
             log.warn("Login failed: account not verified for email '{}'", dto.getEmail());
             throw new IllegalArgumentException("Account not verified. Please verify your account.");
+        }
+
+        // Checks if the account has an active state
+        if (existingUser.getAccountStatus() != AccountStatus.ACTIVE) {
+            log.warn("Login attempt blocked for user: {} with status: {}", existingUser.getEmail(), existingUser.getAccountStatus());
+            throw new IllegalArgumentException("Your account is currently " + existingUser.getAccountStatus() +
+                            ". Please contact support or wait for admin approval.");
         }
 
         // Authenticates the user
@@ -214,7 +222,7 @@ public class AuthService {
         try {
             // Generate new verification entity
             VerificationToken verificationToken = VerificationToken.builder()
-                    .token(generateToken())
+                    .token(TokenGenerator.generateShortToken())
                     .type(VerificationType.EMAIL_VERIFY)
                     .user(user)
                     .build();
@@ -229,10 +237,6 @@ public class AuthService {
             log.error("Error while resending verification token for email '{}': {}", email, e.getMessage(), e);
             throw new RuntimeException("Failed to reset token");
         }
-    }
-
-    private static String generateToken() {
-        return UUID.randomUUID().toString().replace("-", "").substring(0, 8);
     }
 
     private ApplicationUserRole toApplicationRole(UserRole simpleRole) {

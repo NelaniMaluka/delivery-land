@@ -15,7 +15,7 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/user")
 @Validated
 @Tag(name = "User Management Controller", description = "Endpoints for retrieving, updating, and deleting user profiles.")
 public class UserController {
@@ -28,7 +28,7 @@ public class UserController {
 
     @Operation(summary = "Get current authenticated user", description = "Retrieves the profile information of the currently authenticated user.")
     @ApiResponse(responseCode = "200", description = "Current user retrieved successfully")
-    @GetMapping("/user/me")
+    @GetMapping("/me")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<ApiResponseDTO> getCurrentUser() {
         UserResponse response = userService.getCurrentUser();
@@ -37,7 +37,7 @@ public class UserController {
 
     @Operation(summary = "Update user details", description = "Updates the profile information of the authenticated user.")
     @ApiResponse(responseCode = "200", description = "User details updated successfully")
-    @PutMapping("/user/update")
+    @PutMapping("/update")
     @PreAuthorize("hasAuthority('user:write')")
     public ResponseEntity<ApiResponseDTO> updateUser(@Valid @RequestBody UpdateUserDTO dto) {
         LoginResponse response = userService.updateUserDetails(dto);
@@ -46,7 +46,7 @@ public class UserController {
 
     @Operation(summary = "Delete current user", description = "Deletes the authenticated user's account from the system.")
     @ApiResponse(responseCode = "204", description = "User deleted successfully")
-    @DeleteMapping("/user/delete")
+    @DeleteMapping("/delete")
     @PreAuthorize("hasAuthority('user:delete')")
     public ResponseEntity<Void> deleteUser() {
         userService.deleteUser();
@@ -55,7 +55,7 @@ public class UserController {
 
     @Operation(summary = "Request email change", description = "Sends a verification token to the new email address for confirmation.")
     @ApiResponse(responseCode = "200", description = "Verification email sent successfully")
-    @PostMapping("/user/email/request")
+    @PostMapping("/email/request")
     @PreAuthorize("hasAuthority('user:write')")
     public ResponseEntity<ApiResponseDTO> updateEmailRequest(@RequestParam String newEmail) {
         userService.changeEmailRequest(newEmail);
@@ -64,7 +64,7 @@ public class UserController {
 
     @Operation(summary = "Verify email change", description = "Verifies the token and updates the user's email.")
     @ApiResponse(responseCode = "200", description = "Email updated successfully")
-    @PostMapping("/user/email/verify")
+    @PostMapping("/email/verify")
     @PreAuthorize("hasAuthority('user:write')")
     public ResponseEntity<ApiResponseDTO> verifyEmailChangeRequest(@RequestParam String token) {
         LoginResponse response = userService.verifyChangeEmailRequest(token);
