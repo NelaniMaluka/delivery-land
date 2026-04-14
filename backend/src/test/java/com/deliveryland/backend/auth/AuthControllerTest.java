@@ -27,7 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @WebMvcTest(controllers = AuthController.class)
 @AutoConfigureMockMvc(addFilters = false)
 @ActiveProfiles("test")
-public class AuthControllerTest {
+class AuthControllerTest {
 
     @Autowired
     private MockMvc mockMvc;
@@ -48,29 +48,29 @@ public class AuthControllerTest {
     private JwtAuthenticationFilter jwtAuthenticationFilter;
 
     @Test
-    public void AuthenticationController_Register_ReturnsJson() throws Exception {
+    void shouldReturnCreatedResponse_whenRegister_givenValidUser() throws Exception {
         // Arrange
         doNothing().when(authenticationService).register(any(UserCreateDTO.class));
 
-        // Act & Assert
+        // Act and Assert
         mockMvc.perform(post("/api/public/auth/register")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("""
-            {
-              "firstName": "firstname",
-              "lastName": "lastname",
-              "email": "test-email@test.co.za",
-              "contactNumber": "0812345678",
-              "password": "Password@123"
-            }
-            """))
+                        {
+                          "firstName": "firstname",
+                          "lastName": "lastname",
+                          "email": "test-email@test.co.za",
+                          "contactNumber": "0812345678",
+                          "password": "Password@123"
+                        }
+                        """))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.message")
                         .value("We have sent a verification email. Please verify your email."));
     }
 
     @Test
-    public void AuthenticationController_LogIn_ReturnsLoginResponse() throws Exception {
+    void shouldReturnLoginResponse_whenLogin_givenValidCredentials() throws Exception {
         // Arrange
         UserResponse userResponse = UserResponse.builder()
                 .firstName("firstname")
@@ -83,20 +83,19 @@ public class AuthControllerTest {
                 .user(userResponse)
                 .build();
 
-        when(authenticationService.logIn(any(UserLoginDTO.class))).thenReturn(loginResponse);
+        when(authenticationService.logIn(any(UserLoginDTO.class)))
+                .thenReturn(loginResponse);
 
-        // Act
-        var response = mockMvc.perform(post("/api/public/auth/login")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-            {
-              "email": "test-email@test.co.za",
-              "password": "Password@123"
-            }
-            """));
-
-        // Assert
-        response.andExpect(status().isOk())
+        // Act and Assert
+        mockMvc.perform(post("/api/public/auth/login")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                          "email": "test-email@test.co.za",
+                          "password": "Password@123"
+                        }
+                        """))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Login successful"))
                 .andExpect(jsonPath("$.data.token").value("token"))
                 .andExpect(jsonPath("$.data.expiresIn").value(1000))
@@ -105,7 +104,7 @@ public class AuthControllerTest {
     }
 
     @Test
-    public void AuthenticationController_Verify_ReturnsLoginResponse() throws Exception {
+    void shouldReturnVerificationResponse_whenVerify_givenValidToken() throws Exception {
         // Arrange
         UserResponse userResponse = UserResponse.builder()
                 .firstName("firstname")
@@ -118,20 +117,19 @@ public class AuthControllerTest {
                 .user(userResponse)
                 .build();
 
-        when(authenticationService.verifyUser(any(VerifyUserDto.class))).thenReturn(loginResponse);
+        when(authenticationService.verifyUser(any(VerifyUserDto.class)))
+                .thenReturn(loginResponse);
 
-        // Act
-        var response = mockMvc.perform(post("/api/public/auth/verify")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-            {
-              "token": "123456",
-              "email": "test-email@test.co.za"
-            }
-            """));
-
-        // Assert
-        response.andExpect(status().isOk())
+        // Act and Assert
+        mockMvc.perform(post("/api/public/auth/verify")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("""
+                        {
+                          "token": "123456",
+                          "email": "test-email@test.co.za"
+                        }
+                        """))
+                .andExpect(status().isOk())
                 .andExpect(jsonPath("$.message").value("Account successfully verified"))
                 .andExpect(jsonPath("$.data.token").value("token"))
                 .andExpect(jsonPath("$.data.expiresIn").value(1000))
@@ -140,11 +138,12 @@ public class AuthControllerTest {
     }
 
     @Test
-    public void AuthenticationController_ResetVerification_ReturnsJson() throws Exception {
+    void shouldReturnSuccessMessage_whenResendVerification_givenValidEmail() throws Exception {
         // Arrange
-        doNothing().when(authenticationService).resendVerificationCode(any(String.class));
+        doNothing().when(authenticationService)
+                .resendVerificationCode(any(String.class));
 
-        // Act & Assert
+        // Act and Assert
         mockMvc.perform(post("/api/public/auth/resend-verification")
                         .param("email", "malukanelani@gmail.com"))
                 .andExpect(status().isOk())
@@ -153,5 +152,4 @@ public class AuthControllerTest {
                 .andExpect(jsonPath("$.data")
                         .value("malukanelani@gmail.com"));
     }
-
 }

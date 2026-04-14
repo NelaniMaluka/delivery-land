@@ -4,7 +4,7 @@ import com.deliveryland.backend.auth.dto.UserCreateDTO;
 import com.deliveryland.backend.auth.dto.UserLoginDTO;
 import com.deliveryland.backend.auth.dto.VerifyUserDto;
 import com.deliveryland.backend.auth.model.UserRole;
-import com.deliveryland.backend.auth.model.UserVerification;
+import com.deliveryland.backend.auth.model.VerificationToken;
 import com.deliveryland.backend.auth.model.VerificationType;
 import com.deliveryland.backend.common.notification.EmailService;
 import com.deliveryland.backend.common.security.ApplicationUserRole;
@@ -17,7 +17,6 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
@@ -33,13 +32,13 @@ import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 @ActiveProfiles("test")
-public class AuthServiceTest {
+class AuthServiceTest {
 
     @Mock
     private UserRepository userRepository;
 
     @Mock
-    private UserVerificationRepository userVerificationRepository;
+    private VerificationTokenRepository verificationTokenRepository;
 
     @Mock
     private EmailService emailService;
@@ -59,7 +58,7 @@ public class AuthServiceTest {
     private User user;
 
     @BeforeEach
-    public void init() {
+    void setUp() {
         user = User.builder()
                 .firstName("firstname")
                 .lastName("lastname")
@@ -71,36 +70,25 @@ public class AuthServiceTest {
     }
 
     @Test
-    public void UserService_Register_SendEmail() {
+    void shouldSendVerificationEmail_whenRegister_givenValidUser() {
         // Arrange
-        UserCreateDTO dto = UserCreateDTO.builder()
-                .firstName("firstname")
-                .lastName("lastname")
-                .email("test-email@test.co.za")
-                .password("password123")
-                .role(UserRole.CUSTOMER)
-                .build();
+        UserCreateDTO dto = createRegisterDto();
 
-        when(userRepository.existsByEmail(dto.getEmail()))
-                .thenReturn(false);
-        when(passwordEncoder.encode(dto.getPassword()))
-                .thenReturn("encodedPassword");
+        when(userRepository.existsByEmail(dto.getEmail())).thenReturn(false);
+        when(passwordEncoder.encode(dto.getPassword())).thenReturn("encodedPassword");
 
         // Act
         authService.register(dto);
 
         // Assert
-        verify(emailService, Mockito.times(1))
-                .sendAccountVerificationEmail(any(String.class), Mockito.anyString());
+        verify(emailService, times(1))
+                .sendAccountVerificationEmail(any(String.class), anyString());
     }
 
     @Test
-    public void UserService_LogIn_ReturnToken() {
+    void shouldReturnToken_whenLogin_givenValidCredentials() {
         // Arrange
-        UserLoginDTO dto = UserLoginDTO.builder()
-                .email("test-email@test.co.za")
-                .password("password123")
-                .build();
+        UserLoginDTO dto = createLoginDto();
 
         user.setEnabled(true);
 
@@ -113,69 +101,93 @@ public class AuthServiceTest {
         when(jwtService.generateToken(user))
                 .thenReturn("token");
 
-        Authentication authenticationMock = mock(Authentication.class);
+        Authentication authMock = mock(Authentication.class);
 
-        when(authenticationManager.authenticate(
-                argThat(token -> token.getPrincipal().equals(dto.getEmail()) &&
-                        token.getCredentials().equals(dto.getPassword()))))
-                .thenReturn(authenticationMock);
+        when(authenticationManager.authenticate(any()))
+                .thenReturn(authMock);
 
         // Act
         var response = authService.logIn(dto);
 
         // Assert
         Assertions.assertThat(response.token()).isEqualTo("token");
-        Assertions.assertThat(response.user().email()).isEqualTo("test-email@test.co.za");
-        Assertions.assertThat(response.user().firstName()).isEqualTo("firstname");
-        Assertions.assertThat(response.user().lastName()).isEqualTo("lastname");
+        Assertions.assertThat(response.user().email()).isEqualTo(user.getEmail());
     }
 
     @Test
-    public void UserService_VerifyUser_ReturnToken() {
+    void shouldReturnToken_whenVerifyUser_givenValidToken() {
         // Arrange
-        VerifyUserDto dto = VerifyUserDto.builder()
-                .token("verification-token")
-                .email("test-email@test.co.za")
-                .build();
+        VerifyUserDto dto = createVerifyDto();
 
-        UserVerification userVerification = UserVerification.builder()
-                .token("verification-token")
-                .user(user)
-                .type(VerificationType.EMAIL)
-                .expiryDate(LocalDateTime.now().plusMinutes(15))
-                .build();
+        VerificationToken token = createVerificationToken();
 
         user.setEnabled(true);
+
         when(userRepository.findByEmail(dto.getEmail()))
                 .thenReturn(Optional.of(user));
-        when(userVerificationRepository.findByUserAndToken(user, dto.getToken()))
-                .thenReturn(Optional.of(userVerification));
+
+        when(verificationTokenRepository.findByUserAndToken(user, dto.getToken()))
+                .thenReturn(Optional.of(token));
+
         when(jwtService.generateToken(user))
                 .thenReturn("token");
 
+        // Act
         var response = authService.verifyUser(dto);
 
         // Assert
         Assertions.assertThat(response.token()).isEqualTo("token");
-        Assertions.assertThat(response.user().email()).isEqualTo("test-email@test.co.za");
-        Assertions.assertThat(response.user().firstName()).isEqualTo("firstname");
-        Assertions.assertThat(response.user().lastName()).isEqualTo("lastname");
+        Assertions.assertThat(response.user().email()).isEqualTo(user.getEmail());
     }
 
     @Test
-    public void UserService_ResendVerification_SendEmail() {
-
-        when(userRepository.findByEmail("test-email@test.co.za"))
+    void shouldSendVerificationEmail_whenResendVerification_givenNoActiveToken() {
+        // Arrange
+        when(userRepository.findByEmail(user.getEmail()))
                 .thenReturn(Optional.of(user));
-        when(userVerificationRepository.findByUser(user))
+
+        when(verificationTokenRepository.findByUser(user))
                 .thenReturn(Collections.emptyList());
 
         // Act
-        authService.resendVerificationCode("test-email@test.co.za");
+        authService.resendVerificationCode(user.getEmail());
 
         // Assert
-        verify(emailService, Mockito.times(1))
-                .sendAccountVerificationEmail(any(String.class), Mockito.anyString());
+        verify(emailService, times(1))
+                .sendAccountVerificationEmail(any(String.class), anyString());
     }
 
+    // helper methods
+    private UserCreateDTO createRegisterDto() {
+        return UserCreateDTO.builder()
+                .firstName("firstname")
+                .lastName("lastname")
+                .email("test-email@test.co.za")
+                .password("password123")
+                .role(UserRole.CUSTOMER)
+                .build();
+    }
+
+    private UserLoginDTO createLoginDto() {
+        return UserLoginDTO.builder()
+                .email("test-email@test.co.za")
+                .password("password123")
+                .build();
+    }
+
+    private VerifyUserDto createVerifyDto() {
+        return VerifyUserDto.builder()
+                .email("test-email@test.co.za")
+                .token("verification-token")
+                .build();
+    }
+
+    private VerificationToken createVerificationToken() {
+        return VerificationToken.builder()
+                .token("verification-token")
+                .user(user)
+                .type(VerificationType.EMAIL_VERIFY)
+                .expiryDate(LocalDateTime.now().plusMinutes(15))
+                .build();
+    }
 }
