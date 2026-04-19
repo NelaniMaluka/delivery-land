@@ -97,6 +97,7 @@ class VerificationTokenRepositoryTest {
         return VerificationToken.builder()
                 .token("token-123")
                 .user(user)
+                .targetEmail(user.getEmail())
                 .expiryDate(LocalDateTime.now().plusMinutes(15))
                 .type(VerificationType.EMAIL_VERIFY)
                 .build();

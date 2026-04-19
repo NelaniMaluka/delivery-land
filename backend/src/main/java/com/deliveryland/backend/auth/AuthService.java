@@ -39,7 +39,9 @@ public class AuthService {
     private final VerificationTokenRepository verificationTokenRepository;
     private final EmailService emailService;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService, AuthenticationManager authenticationManager, VerificationTokenRepository verificationTokenRepository, EmailService emailService) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
+            AuthenticationManager authenticationManager, VerificationTokenRepository verificationTokenRepository,
+            EmailService emailService) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
@@ -76,6 +78,7 @@ public class AuthService {
                 .token(TokenGenerator.generateShortToken())
                 .type(VerificationType.EMAIL_VERIFY)
                 .user(newUser)
+                .targetEmail(newUser.getEmail())
                 .build();
 
         // Save and send the verification email
@@ -111,9 +114,10 @@ public class AuthService {
 
         // Checks if the account has an active state
         if (existingUser.getAccountStatus() != AccountStatus.ACTIVE) {
-            log.warn("Login attempt blocked for user: {} with status: {}", existingUser.getEmail(), existingUser.getAccountStatus());
+            log.warn("Login attempt blocked for user: {} with status: {}", existingUser.getEmail(),
+                    existingUser.getAccountStatus());
             throw new IllegalArgumentException("Your account is currently " + existingUser.getAccountStatus() +
-                            ". Please contact support or wait for admin approval.");
+                    ". Please contact support or wait for admin approval.");
         }
 
         // Authenticates the user
@@ -164,20 +168,9 @@ public class AuthService {
                     "Your verification token has expired. Please request a new token.");
         }
 
-        // Check if token already used
-        if (verificationToken.isUsed()) {
-            log.warn("Verification failed: token reuse attempt for email '{}'", dto.getEmail());
-            throw new IllegalArgumentException(
-                    "This verification token has already been used.");
-        }
-
-        // Update and save the changes
         user.setEnabled(true);
-        verificationToken.setUsed(true);
-        verificationToken.setToken(null);
-
         userRepository.save(user);
-        verificationTokenRepository.save(verificationToken);
+        verificationTokenRepository.deleteByUser(user);
 
         // Send welcome email
         emailService.sendWelcomeEmail(user.getEmail(), user.getFirstName() + " " + user.getLastName());
@@ -225,6 +218,7 @@ public class AuthService {
                     .token(TokenGenerator.generateShortToken())
                     .type(VerificationType.EMAIL_VERIFY)
                     .user(user)
+                    .targetEmail(user.getEmail())
                     .build();
 
             // Save and send email
@@ -241,10 +235,10 @@ public class AuthService {
 
     private ApplicationUserRole toApplicationRole(UserRole simpleRole) {
         return switch (simpleRole) {
-            case CUSTOMER      -> ApplicationUserRole.CUSTOMER;
-            case DRIVER        -> ApplicationUserRole.DRIVER;
-            case STORE_OWNER   -> ApplicationUserRole.STORE_OWNER;
-            case ADMIN         -> ApplicationUserRole.ADMIN;
+            case CUSTOMER -> ApplicationUserRole.CUSTOMER;
+            case DRIVER -> ApplicationUserRole.DRIVER;
+            case STORE_OWNER -> ApplicationUserRole.STORE_OWNER;
+            case ADMIN -> ApplicationUserRole.ADMIN;
         };
     }
 }

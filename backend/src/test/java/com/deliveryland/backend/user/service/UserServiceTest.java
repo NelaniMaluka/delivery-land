@@ -30,7 +30,6 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.IntStream;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
@@ -39,284 +38,229 @@ import static org.mockito.Mockito.*;
 @ActiveProfiles("test")
 class UserServiceTest {
 
-    @Mock
-    private UserRepository userRepository;
+        @Mock
+        private UserRepository userRepository;
 
-    @Mock
-    private EmailService emailService;
+        @Mock
+        private EmailService emailService;
 
-    @Mock
-    private JwtService jwtService;
+        @Mock
+        private JwtService jwtService;
 
-    @Mock
-    private VerificationTokenRepository verificationTokenRepository;
+        @Mock
+        private VerificationTokenRepository verificationTokenRepository;
 
-    @InjectMocks
-    private UserService userService;
+        @InjectMocks
+        private UserService userService;
 
-    private User user;
+        private User user;
 
-    @BeforeEach
-    void setUp() {
-        user = createUser("user@deliveryland.com");
-    }
+        @BeforeEach
+        void setUp() {
+                user = createUser("user@deliveryland.com");
+        }
 
-    @AfterEach
-    void tearDown() {
-        SecurityContextHolder.clearContext();
-    }
+        @AfterEach
+        void tearDown() {
+                SecurityContextHolder.clearContext();
+        }
 
-    @Test
-    void shouldReturnUserResponse_whenGetCurrentUser_givenAuthenticatedUser() {
-        // Arrange
-        authenticate(user.getEmail());
-        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        @Test
+        void shouldReturnUserResponse_whenGetCurrentUser_givenAuthenticatedUser() {
+                // Arrange
+                authenticate(user.getEmail());
+                when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
 
-        // Act
-        var result = userService.getCurrentUser();
+                // Act
+                var result = userService.getCurrentUser();
 
-        // Assert
-        Assertions.assertThat(result.email()).isEqualTo(user.getEmail());
-    }
+                // Assert
+                Assertions.assertThat(result.email()).isEqualTo(user.getEmail());
+        }
 
-    @Test
-    void shouldUpdateAndReturnLoginResponse_whenUpdateUserDetails_givenValidDto() {
-        // Arrange
-        authenticate(user.getEmail());
-        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
-        when(jwtService.generateToken(user)).thenReturn("new-jwt");
+        @Test
+        void shouldUpdateAndReturnLoginResponse_whenUpdateUserDetails_givenValidDto() {
+                // Arrange
+                authenticate(user.getEmail());
+                when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+                when(jwtService.generateToken(user)).thenReturn("new-jwt");
 
-        UpdateUserDTO dto = UpdateUserDTO.builder()
-                .firstName("Updated")
-                .lastName("Name")
-                .contactNumber("+27821234567")
-                .build();
+                UpdateUserDTO dto = UpdateUserDTO.builder()
+                                .firstName("Updated")
+                                .lastName("Name")
+                                .contactNumber("+27821234567")
+                                .build();
 
-        // Act
-        var result = userService.updateUserDetails(dto);
+                // Act
+                var result = userService.updateUserDetails(dto);
 
-        // Assert
-        Assertions.assertThat(result.token()).isEqualTo("new-jwt");
-        Assertions.assertThat(result.expiresIn()).isEqualTo(86400000);
-        Assertions.assertThat(result.user().firstName()).isEqualTo("Updated");
-        Assertions.assertThat(result.user().lastName()).isEqualTo("Name");
-        verify(userRepository, times(1)).save(user);
-    }
+                // Assert
+                Assertions.assertThat(result.jwtToken()).isEqualTo("new-jwt");
+                Assertions.assertThat(result.expiresIn()).isEqualTo(86400000);
+                Assertions.assertThat(result.user().firstName()).isEqualTo("Updated");
+                Assertions.assertThat(result.user().lastName()).isEqualTo("Name");
+                verify(userRepository, times(1)).save(user);
+        }
 
-    @Test
-    void shouldDeleteUserAndNotify_whenDeleteUser_givenAuthenticatedUser() {
-        // Arrange
-        authenticate(user.getEmail());
-        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        @Test
+        void shouldDeleteUserAndNotify_whenDeleteUser_givenAuthenticatedUser() {
+                // Arrange
+                authenticate(user.getEmail());
+                when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
 
-        // Act
-        userService.deleteUser();
+                // Act
+                userService.deleteUser();
 
-        // Assert
-        verify(verificationTokenRepository, times(1)).deleteByUser(user);
-        verify(userRepository, times(1)).delete(user);
-        verify(emailService, times(1))
-                .sendAccountDeletionEmail(eq(user.getEmail()), eq("firstname lastname"));
-    }
+                // Assert
+                verify(verificationTokenRepository, times(1)).deleteByUser(user);
+                verify(userRepository, times(1)).delete(user);
+                verify(emailService, times(1))
+                                .sendAccountDeletionEmail(eq(user.getEmail()), eq("firstname lastname"));
+        }
 
-    @Test
-    void shouldThrowBadRequest_whenChangeEmailRequest_givenSameEmail() {
-        // Arrange
-        authenticate(user.getEmail());
-        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        @Test
+        void shouldThrowBadRequest_whenChangeEmailRequest_givenSameEmail() {
+                // Arrange
+                authenticate(user.getEmail());
+                when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
 
-        // Act & Assert
-        Assertions.assertThatThrownBy(() -> userService.changeEmailRequest(user.getEmail()))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> Assertions.assertThat(((ResponseStatusException) ex).getStatusCode())
-                        .isEqualTo(HttpStatus.BAD_REQUEST));
-    }
+                // Act & Assert
+                Assertions.assertThatThrownBy(() -> userService.changeEmailRequest(user.getEmail()))
+                                .isInstanceOf(ResponseStatusException.class)
+                                .satisfies(ex -> Assertions.assertThat(((ResponseStatusException) ex).getStatusCode())
+                                                .isEqualTo(HttpStatus.BAD_REQUEST));
+        }
 
-    @Test
-    void shouldThrowBadRequest_whenChangeEmailRequest_givenActiveVerificationExists() {
-        // Arrange
-        authenticate(user.getEmail());
-        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        @Test
+        void shouldThrowBadRequest_whenChangeEmailRequest_givenActiveVerificationExists() {
+                // Arrange
+                authenticate(user.getEmail());
+                when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
 
-        VerificationToken active = VerificationToken.builder()
-                .token("active-token")
-                .user(user)
-                .type(VerificationType.EMAIL_CHANGE)
-                .targetEmail("new@deliveryland.com")
-                .expiryDate(LocalDateTime.now().plusHours(1))
-                .used(false)
-                .build();
+                VerificationToken active = VerificationToken.builder()
+                                .token("active-token")
+                                .user(user)
+                                .type(VerificationType.EMAIL_CHANGE)
+                                .targetEmail("new@deliveryland.com")
+                                .expiryDate(LocalDateTime.now().plusHours(1))
+                                .build();
 
-        when(verificationTokenRepository.findByUser(user)).thenReturn(List.of(active));
+                when(verificationTokenRepository.findByUser(user)).thenReturn(List.of(active));
 
-        // Act & Assert
-        Assertions.assertThatThrownBy(() -> userService.changeEmailRequest("new@deliveryland.com"))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> Assertions.assertThat(((ResponseStatusException) ex).getStatusCode())
-                        .isEqualTo(HttpStatus.BAD_REQUEST));
-    }
+                // Act & Assert
+                Assertions.assertThatThrownBy(() -> userService.changeEmailRequest("new@deliveryland.com"))
+                                .isInstanceOf(ResponseStatusException.class)
+                                .satisfies(ex -> Assertions.assertThat(((ResponseStatusException) ex).getStatusCode())
+                                                .isEqualTo(HttpStatus.BAD_REQUEST));
+        }
 
-    @Test
-    void shouldThrowTooManyRequests_whenChangeEmailRequest_givenExceededLimit() {
-        // Arrange
-        authenticate(user.getEmail());
-        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        @Test
+        void shouldSaveTokenAndSendEmail_whenChangeEmailRequest_givenValidNewEmail() {
+                // Arrange
+                authenticate(user.getEmail());
+                when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+                when(verificationTokenRepository.findByUser(user)).thenReturn(List.of());
 
-        LocalDateTime now = LocalDateTime.now();
-        List<VerificationToken> expiredButRecent = IntStream.range(0, 3)
-                .mapToObj(i -> VerificationToken.builder()
-                        .token("tok-" + i)
-                        .user(user)
-                        .type(VerificationType.EMAIL_CHANGE)
-                        .targetEmail("other" + i + "@deliveryland.com")
-                        .expiryDate(now.minusDays(1))
-                        .used(false)
-                        .build())
-                .toList();
+                // Act
+                userService.changeEmailRequest("newemail@deliveryland.com");
 
-        when(verificationTokenRepository.findByUser(user)).thenReturn(expiredButRecent);
+                // Assert
+                verify(verificationTokenRepository, times(1)).save(any(VerificationToken.class));
+                ArgumentCaptor<String> tokenCaptor = ArgumentCaptor.forClass(String.class);
+                verify(emailService, times(1))
+                                .sendEmailChangeVerificationEmail(eq("newemail@deliveryland.com"),
+                                                tokenCaptor.capture());
+                Assertions.assertThat(tokenCaptor.getValue()).isNotBlank();
+        }
 
-        // Act & Assert
-        Assertions.assertThatThrownBy(() -> userService.changeEmailRequest("brand-new@deliveryland.com"))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> Assertions.assertThat(((ResponseStatusException) ex).getStatusCode())
-                        .isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
-    }
+        @Test
+        void shouldThrowNotFound_whenVerifyChangeEmailRequest_givenUnknownToken() {
+                // Arrange
+                authenticate(user.getEmail());
+                when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+                when(verificationTokenRepository.findByUserAndToken(user, "bad"))
+                                .thenReturn(Optional.empty());
 
-    @Test
-    void shouldSaveTokenAndSendEmail_whenChangeEmailRequest_givenValidNewEmail() {
-        // Arrange
-        authenticate(user.getEmail());
-        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
-        when(verificationTokenRepository.findByUser(user)).thenReturn(List.of());
+                // Act & Assert
+                Assertions.assertThatThrownBy(() -> userService.verifyChangeEmailRequest("bad"))
+                                .isInstanceOf(ResponseStatusException.class)
+                                .satisfies(ex -> Assertions.assertThat(((ResponseStatusException) ex).getStatusCode())
+                                                .isEqualTo(HttpStatus.NOT_FOUND));
+        }
 
-        // Act
-        userService.changeEmailRequest("newemail@deliveryland.com");
+        @Test
+        void shouldThrowGone_whenVerifyChangeEmailRequest_givenExpiredToken() {
+                // Arrange
+                authenticate(user.getEmail());
+                when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
 
-        // Assert
-        verify(verificationTokenRepository, times(1)).save(any(VerificationToken.class));
-        ArgumentCaptor<String> tokenCaptor = ArgumentCaptor.forClass(String.class);
-        verify(emailService, times(1))
-                .sendEmailChangeVerificationEmail(eq("newemail@deliveryland.com"), tokenCaptor.capture());
-        Assertions.assertThat(tokenCaptor.getValue()).isNotBlank();
-    }
+                VerificationToken vt = VerificationToken.builder()
+                                .token("t1")
+                                .user(user)
+                                .type(VerificationType.EMAIL_CHANGE)
+                                .targetEmail("new@deliveryland.com")
+                                .expiryDate(LocalDateTime.now().minusMinutes(1))
+                                .build();
 
-    @Test
-    void shouldThrowNotFound_whenVerifyChangeEmailRequest_givenUnknownToken() {
-        // Arrange
-        authenticate(user.getEmail());
-        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
-        when(verificationTokenRepository.findByUserAndToken(user, "bad"))
-                .thenReturn(Optional.empty());
+                when(verificationTokenRepository.findByUserAndToken(user, "t1"))
+                                .thenReturn(Optional.of(vt));
 
-        // Act & Assert
-        Assertions.assertThatThrownBy(() -> userService.verifyChangeEmailRequest("bad"))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> Assertions.assertThat(((ResponseStatusException) ex).getStatusCode())
-                        .isEqualTo(HttpStatus.NOT_FOUND));
-    }
+                // Act & Assert
+                Assertions.assertThatThrownBy(() -> userService.verifyChangeEmailRequest("t1"))
+                                .isInstanceOf(ResponseStatusException.class)
+                                .satisfies(ex -> Assertions.assertThat(((ResponseStatusException) ex).getStatusCode())
+                                                .isEqualTo(HttpStatus.GONE));
+        }
 
-    @Test
-    void shouldThrowBadRequest_whenVerifyChangeEmailRequest_givenUsedToken() {
-        // Arrange
-        authenticate(user.getEmail());
-        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+        @Test
+        void shouldUpdateEmailAndReturnResponse_whenVerifyChangeEmailRequest_givenValidToken() {
+                // Arrange
+                authenticate(user.getEmail());
+                when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
 
-        VerificationToken vt = VerificationToken.builder()
-                .token("t1")
-                .user(user)
-                .type(VerificationType.EMAIL_CHANGE)
-                .targetEmail("new@deliveryland.com")
-                .expiryDate(LocalDateTime.now().plusHours(1))
-                .used(true)
-                .build();
+                VerificationToken vt = VerificationToken.builder()
+                                .token("verify-me")
+                                .user(user)
+                                .type(VerificationType.EMAIL_CHANGE)
+                                .targetEmail("verified@deliveryland.com")
+                                .expiryDate(LocalDateTime.now().plusHours(1))
+                                .build();
 
-        when(verificationTokenRepository.findByUserAndToken(user, "t1"))
-                .thenReturn(Optional.of(vt));
+                when(jwtService.generateToken(user)).thenReturn("mock-jwt-token");
+                when(verificationTokenRepository.findByUserAndToken(user, "verify-me"))
+                                .thenReturn(Optional.of(vt));
 
-        // Act & Assert
-        Assertions.assertThatThrownBy(() -> userService.verifyChangeEmailRequest("t1"))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> Assertions.assertThat(((ResponseStatusException) ex).getStatusCode())
-                        .isEqualTo(HttpStatus.BAD_REQUEST));
-    }
+                // Act
+                var result = userService.verifyChangeEmailRequest("verify-me");
 
-    @Test
-    void shouldThrowGone_whenVerifyChangeEmailRequest_givenExpiredToken() {
-        // Arrange
-        authenticate(user.getEmail());
-        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
+                // Assert
+                Assertions.assertThat(user.getEmail()).isEqualTo("verified@deliveryland.com");
+                Assertions.assertThat(result.jwtToken()).isEqualTo("mock-jwt-token");
+                Assertions.assertThat(result.user().email()).isEqualTo("verified@deliveryland.com");
+                verify(userRepository, times(1)).save(user);
+                verify(verificationTokenRepository, times(1)).deleteByUser(user);
+        }
 
-        VerificationToken vt = VerificationToken.builder()
-                .token("t1")
-                .user(user)
-                .type(VerificationType.EMAIL_CHANGE)
-                .targetEmail("new@deliveryland.com")
-                .expiryDate(LocalDateTime.now().minusMinutes(1))
-                .used(false)
-                .build();
+        private void authenticate(String email) {
+                var auth = new UsernamePasswordAuthenticationToken(
+                                email,
+                                null,
+                                List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER")));
 
-        when(verificationTokenRepository.findByUserAndToken(user, "t1"))
-                .thenReturn(Optional.of(vt));
+                SecurityContextHolder.getContext().setAuthentication(auth);
+        }
 
-        // Act & Assert
-        Assertions.assertThatThrownBy(() -> userService.verifyChangeEmailRequest("t1"))
-                .isInstanceOf(ResponseStatusException.class)
-                .satisfies(ex -> Assertions.assertThat(((ResponseStatusException) ex).getStatusCode())
-                        .isEqualTo(HttpStatus.GONE));
-    }
-
-    @Test
-    void shouldUpdateEmailAndReturnResponse_whenVerifyChangeEmailRequest_givenValidToken() {
-        // Arrange
-        authenticate(user.getEmail());
-        when(userRepository.findByEmail(user.getEmail())).thenReturn(Optional.of(user));
-
-        VerificationToken vt = VerificationToken.builder()
-                .token("verify-me")
-                .user(user)
-                .type(VerificationType.EMAIL_CHANGE)
-                .targetEmail("verified@deliveryland.com")
-                .expiryDate(LocalDateTime.now().plusHours(1))
-                .used(false)
-                .build();
-
-        when(verificationTokenRepository.findByUserAndToken(user, "verify-me"))
-                .thenReturn(Optional.of(vt));
-
-        // Act
-        var result = userService.verifyChangeEmailRequest("verify-me");
-
-        // Assert
-        Assertions.assertThat(user.getEmail()).isEqualTo("verified@deliveryland.com");
-        Assertions.assertThat(result.token()).isEqualTo("verify-me");
-        Assertions.assertThat(result.user().email()).isEqualTo("verified@deliveryland.com");
-        Assertions.assertThat(vt.isUsed()).isTrue();
-        verify(userRepository, times(1)).save(user);
-        verify(verificationTokenRepository, times(1)).save(vt);
-    }
-
-    private void authenticate(String email) {
-        var auth = new UsernamePasswordAuthenticationToken(
-                email,
-                null,
-                List.of(new SimpleGrantedAuthority("ROLE_CUSTOMER"))
-        );
-
-        SecurityContextHolder.getContext().setAuthentication(auth);
-    }
-
-    private User createUser(String email) {
-        return User.builder()
-                .id(UUID.randomUUID())
-                .firstName("firstname")
-                .lastName("lastname")
-                .email(email)
-                .contactNumber("+27821234567")
-                .password("Password@123")
-                .role(ApplicationUserRole.CUSTOMER)
-                .accountStatus(AccountStatus.ACTIVE)
-                .enabled(true)
-                .build();
-    }
+        private User createUser(String email) {
+                return User.builder()
+                                .id(UUID.randomUUID())
+                                .firstName("firstname")
+                                .lastName("lastname")
+                                .email(email)
+                                .contactNumber("+27821234567")
+                                .password("Password@123")
+                                .role(ApplicationUserRole.CUSTOMER)
+                                .accountStatus(AccountStatus.ACTIVE)
+                                .enabled(true)
+                                .build();
+        }
 }

@@ -33,153 +33,138 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ActiveProfiles("test")
 class AdminUserControllerTest {
 
-    @Autowired
-    private MockMvc mockMvc;
+        @Autowired
+        private MockMvc mockMvc;
 
-    @MockitoBean
-    private AdminUserService adminUserService;
+        @MockitoBean
+        private AdminUserService adminUserService;
 
-    @MockitoBean
-    private JwtService jwtService;
+        @MockitoBean
+        private JwtService jwtService;
 
-    @MockitoBean
-    private UserDetailsService userDetailsService;
+        @MockitoBean
+        private UserDetailsService userDetailsService;
 
-    @MockitoBean
-    private CustomUserDetailsService customUserDetailsService;
+        @MockitoBean
+        private CustomUserDetailsService customUserDetailsService;
 
-    @MockitoBean
-    private JwtAuthenticationFilter jwtAuthenticationFilter;
+        @MockitoBean
+        private JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    @Test
-    void shouldReturnUsers_whenGetAllUsers() throws Exception {
-        // Arrange
-        UserResponse user = createUserResponse();
-        when(adminUserService.getAllUsers(any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(user)));
+        @Test
+        void shouldReturnUsers_whenGetAllUsers() throws Exception {
+                // Arrange
+                UserResponse user = createUserResponse();
+                when(adminUserService.getAllUsers(any(Pageable.class)))
+                                .thenReturn(new PageImpl<>(List.of(user)));
 
-        // Act & Assert
-        mockMvc.perform(get("/api/admin/users")
-                        .param("page", "0")
-                        .param("size", "10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Users retrieved successfully"))
-                .andExpect(jsonPath("$.data.content[0].email").value(user.email()));
-    }
+                // Act & Assert
+                mockMvc.perform(get("/api/admin/users")
+                                .param("page", "0")
+                                .param("size", "10"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.message").value("Users retrieved successfully"))
+                                .andExpect(jsonPath("$.data.content[0].email").value(user.email()));
+        }
 
-    @Test
-    void shouldReturnUsers_whenGetUsersByRole_givenRole() throws Exception {
-        // Arrange
-        UserResponse user = createUserResponse();
-        when(adminUserService.getUsersByRole(any(ApplicationUserRole.class), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(user)));
+        @Test
+        void shouldReturnUsers_whenGetUsersByRole_givenRole() throws Exception {
+                // Arrange
+                UserResponse user = createUserResponse();
+                when(adminUserService.getUsersByRole(any(ApplicationUserRole.class), any(Pageable.class)))
+                                .thenReturn(new PageImpl<>(List.of(user)));
 
-        // Act & Assert
-        mockMvc.perform(get("/api/admin/users/role")
-                        .param("role", "CUSTOMER")
-                        .param("page", "0")
-                        .param("size", "10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Users retrieved successfully"))
-                .andExpect(jsonPath("$.data.content[0].email").value(user.email()));
-    }
+                // Act & Assert
+                mockMvc.perform(get("/api/admin/users/role")
+                                .param("role", "CUSTOMER")
+                                .param("page", "0")
+                                .param("size", "10"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.message").value("Users retrieved successfully"))
+                                .andExpect(jsonPath("$.data.content[0].email").value(user.email()));
+        }
 
-    @Test
-    void shouldReturnUsers_whenSearchByEmail_givenQuery() throws Exception {
-        // Arrange
-        UserResponse user = createUserResponse();
-        when(adminUserService.searchByEmail(any(String.class), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(user)));
+        @Test
+        void shouldReturnUsers_whenSearchUsers_givenQuery() throws Exception {
 
-        // Act & Assert
-        mockMvc.perform(get("/api/admin/users/search/email")
-                        .param("email", "user")
-                        .param("page", "0")
-                        .param("size", "10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Search completed successfully"))
-                .andExpect(jsonPath("$.data.content[0].email").value(user.email()));
-    }
+                // Arrange
+                UserResponse user = createUserResponse();
 
-    @Test
-    void shouldReturnUsers_whenSearchByName_givenQuery() throws Exception {
-        // Arrange
-        UserResponse user = createUserResponse();
-        when(adminUserService.searchByName(any(String.class), any(Pageable.class)))
-                .thenReturn(new PageImpl<>(List.of(user)));
+                when(adminUserService.searchUsers(any(String.class), any(Pageable.class)))
+                                .thenReturn(new PageImpl<>(List.of(user)));
 
-        // Act & Assert
-        mockMvc.perform(get("/api/admin/users/search/name")
-                        .param("query", "first")
-                        .param("page", "0")
-                        .param("size", "10"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Search completed successfully"))
-                .andExpect(jsonPath("$.data.content[0].email").value(user.email()));
-    }
+                // Act & Assert
+                mockMvc.perform(get("/api/admin/users/search")
+                                .param("query", "user")
+                                .param("page", "0")
+                                .param("size", "10"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.message").value("Search completed successfully"))
+                                .andExpect(jsonPath("$.data.content[0].email").value(user.email()));
+        }
 
-    @Test
-    void shouldReturnUser_whenGetUserById_givenValidId() throws Exception {
-        // Arrange
-        UserResponse user = createUserResponse();
-        when(adminUserService.getUserById(user.id()))
-                .thenReturn(user);
+        @Test
+        void shouldReturnUser_whenGetUserById_givenValidId() throws Exception {
+                // Arrange
+                UserResponse user = createUserResponse();
+                when(adminUserService.getUserById(user.id()))
+                                .thenReturn(user);
 
-        // Act & Assert
-        mockMvc.perform(get("/api/admin/users/{userId}", user.id()))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("User retrieved successfully"))
-                .andExpect(jsonPath("$.data.id").value(user.id().toString()))
-                .andExpect(jsonPath("$.data.email").value(user.email()));
-    }
+                // Act & Assert
+                mockMvc.perform(get("/api/admin/users/{userId}", user.id()))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.message").value("User retrieved successfully"))
+                                .andExpect(jsonPath("$.data.id").value(user.id().toString()))
+                                .andExpect(jsonPath("$.data.email").value(user.email()));
+        }
 
-    @Test
-    void shouldReturnUpdatedUser_whenUpdateStatus_givenValidRequest() throws Exception {
-        // Arrange
-        UserResponse user = createUserResponse();
-        when(adminUserService.updateAccountStatus(user.id(), AccountStatus.SUSPENDED))
-                .thenReturn(user);
+        @Test
+        void shouldReturnUpdatedUser_whenUpdateStatus_givenValidRequest() throws Exception {
+                // Arrange
+                UserResponse user = createUserResponse();
+                when(adminUserService.updateAccountStatus(user.id(), AccountStatus.SUSPENDED))
+                                .thenReturn(user);
 
-        // Act & Assert
-        mockMvc.perform(put("/api/admin/users/{userId}/status", user.id())
-                        .param("status", "SUSPENDED"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Account status updated successfully"))
-                .andExpect(jsonPath("$.data.email").value(user.email()));
-    }
+                // Act & Assert
+                mockMvc.perform(put("/api/admin/users/{userId}/status", user.id())
+                                .param("status", "SUSPENDED"))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.message").value("Account status updated successfully"))
+                                .andExpect(jsonPath("$.data.email").value(user.email()));
+        }
 
-    @Test
-    void shouldReturnSuccessMessage_whenForcePasswordReset_givenValidId() throws Exception {
-        // Arrange
-        UUID userId = UUID.randomUUID();
-        doNothing().when(adminUserService).forcePasswordReset(userId);
+        @Test
+        void shouldReturnSuccessMessage_whenForcePasswordReset_givenValidId() throws Exception {
+                // Arrange
+                UUID userId = UUID.randomUUID();
+                doNothing().when(adminUserService).forcePasswordReset(userId);
 
-        // Act & Assert
-        mockMvc.perform(post("/api/admin/users/{userId}/force-password-reset", userId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("Password reset email sent successfully"));
-    }
+                // Act & Assert
+                mockMvc.perform(post("/api/admin/users/{userId}/force-password-reset", userId))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.message").value("Password reset email sent successfully"));
+        }
 
-    @Test
-    void shouldReturnSuccessMessage_whenDeleteUser_givenValidId() throws Exception {
-        // Arrange
-        UUID userId = UUID.randomUUID();
-        doNothing().when(adminUserService).deleteUser(userId);
+        @Test
+        void shouldReturnSuccessMessage_whenDeleteUser_givenValidId() throws Exception {
+                // Arrange
+                UUID userId = UUID.randomUUID();
+                doNothing().when(adminUserService).deleteUser(userId);
 
-        // Act & Assert
-        mockMvc.perform(delete("/api/admin/users/{userId}", userId))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.message").value("User deleted successfully"));
-    }
+                // Act & Assert
+                mockMvc.perform(delete("/api/admin/users/{userId}", userId))
+                                .andExpect(status().isOk())
+                                .andExpect(jsonPath("$.message").value("User deleted successfully"));
+        }
 
-    private UserResponse createUserResponse() {
-        return UserResponse.builder()
-                .id(UUID.randomUUID())
-                .firstName("firstname")
-                .lastName("lastname")
-                .email("test-email@test.co.za")
-                .contactNumber("+27821234567")
-                .accountStatus(AccountStatus.ACTIVE)
-                .build();
-    }
+        private UserResponse createUserResponse() {
+                return UserResponse.builder()
+                                .id(UUID.randomUUID())
+                                .firstName("firstname")
+                                .lastName("lastname")
+                                .email("test-email@test.co.za")
+                                .contactNumber("+27821234567")
+                                .accountStatus(AccountStatus.ACTIVE)
+                                .build();
+        }
 }

@@ -48,13 +48,19 @@ public class User implements UserDetails {
     @Pattern(regexp = "\\+?[0-9]{10,15}", message = "Contact number must be valid")
     private String contactNumber;
 
+    @Builder.Default
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private AccountStatus accountStatus;
+    private AccountStatus accountStatus = AccountStatus.ACTIVE;
 
     @Builder.Default
     @Column(nullable = false)
     private boolean enabled = false;
+
+    @Builder.Default
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private ApplicationUserRole role = ApplicationUserRole.CUSTOMER;
 
     private LocalDateTime createdAt;
 
@@ -65,14 +71,6 @@ public class User implements UserDetails {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         this.username = this.email;
-
-        // Default account status based on role
-        if (this.accountStatus == null) {
-            switch (this.role) {
-                case CUSTOMER-> this.accountStatus = AccountStatus.ACTIVE;
-                case DRIVER, STORE_OWNER, ADMIN -> this.accountStatus = AccountStatus.PENDING_VERIFICATION;
-            }
-        }
     }
 
     @PreUpdate
@@ -80,11 +78,6 @@ public class User implements UserDetails {
         this.updatedAt = LocalDateTime.now();
         this.username = this.email;
     }
-
-    @Builder.Default
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
-    private ApplicationUserRole role = ApplicationUserRole.CUSTOMER;
 
     @Override
     public Set<SimpleGrantedAuthority> getAuthorities() {

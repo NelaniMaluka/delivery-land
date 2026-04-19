@@ -10,12 +10,12 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class VerifyUserDto{
+public class VerifyUserDto {
         @NotBlank(message = "Email must not be blank")
         @Email(message = "Email should be valid")
         String email;
 
         @NotBlank(message = "Token must not be blank")
-        @Pattern(regexp = "\\d{6,7}", message = "Token must be a 6 or 7-digit number")
+        @Pattern(regexp = "^[A-Za-z0-9]{8}$", message = "Token must be exactly 8 alphanumeric characters")
         String token;
 }

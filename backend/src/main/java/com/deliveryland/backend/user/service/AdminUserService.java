@@ -29,174 +29,181 @@ import com.deliveryland.backend.common.util.TokenGenerator;
 @Service
 public class AdminUserService {
 
-    private final UserRepository userRepository;
-    private final EmailService emailService;
-    private final VerificationTokenRepository verificationTokenRepository;
+        private final UserRepository userRepository;
+        private final EmailService emailService;
+        private final VerificationTokenRepository verificationTokenRepository;
 
-    public AdminUserService(UserRepository userRepository, EmailService emailService, VerificationTokenRepository verificationTokenRepository) {
-        this.userRepository = userRepository;
-        this.emailService = emailService;
-        this.verificationTokenRepository = verificationTokenRepository;
-    }
-
-    @Transactional(readOnly = true)
-    @Cacheable(value = "users", key = "'all-' + #pageable.pageNumber + '-' + #pageable.pageSize")
-    public Page<UserResponse> getAllUsers(Pageable pageable) {
-        log.debug("Admin fetched users page={}", pageable.getPageNumber());
-
-        return userRepository.findAll(pageable)
-                .map(UserResponse::user);
-    }
-
-    @Transactional(readOnly = true)
-    @Cacheable(value = "users", key = "'role-' + #role + '-' + #pageable.pageNumber")
-    public Page<UserResponse> getUsersByRole(ApplicationUserRole role, Pageable pageable) {
-        log.debug("Admin fetching users by role: {}", role);
-
-        return userRepository.findByRole(role, pageable)
-                .map(UserResponse::user);
-    }
-
-    @Transactional(readOnly = true)
-    @Cacheable(value = "users", key = "'email-' + #email + '-' + #pageable.pageNumber")
-    public Page<UserResponse> searchByEmail(String email, Pageable pageable) {
-        log.debug("Admin search email={}", email);
-
-        return userRepository.findByEmailContainingIgnoreCase(email, pageable)
-                .map(UserResponse::user);
-    }
-
-    @Transactional(readOnly = true)
-    @Cacheable(value = "users", key = "'name-' + #query + '-' + #pageable.pageNumber")
-    public Page<UserResponse> searchByName(String query, Pageable pageable) {
-        log.debug("Admin search name={}", query);
-
-        return userRepository
-                .findByFirstNameContainingIgnoreCaseOrLastNameContainingIgnoreCase(query, query, pageable)
-                .map(UserResponse::user);
-    }
-
-    @Transactional(readOnly = true)
-    @Cacheable(value = "user", key = "#userId")
-    public UserResponse getUserById(UUID userId) {
-        log.info("Admin fetching user: {}", userId);
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.error("User not found: {}", userId);
-                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
-                });
-
-        return UserResponse.user(user);
-    }
-
-    @Transactional
-    @CacheEvict(value = {"users", "user"}, allEntries = true)
-    public UserResponse updateAccountStatus(UUID userId, AccountStatus status) {
-        User admin = SecurityUtil.getCurrentUser(userRepository);
-
-        log.info("ADMIN_ACTION: update_account_status | adminId={} | adminEmail={} | targetUserId={} | newStatus={}",
-                admin.getId(),
-                admin.getEmail(),
-                userId,
-                status
-        );
-
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.warn("ADMIN_ACTION_FAILED: update_account_status | adminId={} | targetUserId={} | reason=USER_NOT_FOUND",
-                            admin.getId(), userId);
-                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
-                });
-
-        AccountStatus oldStatus = user.getAccountStatus();
-
-        if (oldStatus == status) {
-            log.warn("ADMIN_ACTION_SKIPPED: update_account_status | adminId={} | targetUserId={} | reason=STATUS_UNCHANGED",
-                    admin.getId(), userId);
-            return UserResponse.user(user);
+        public AdminUserService(UserRepository userRepository, EmailService emailService,
+                        VerificationTokenRepository verificationTokenRepository) {
+                this.userRepository = userRepository;
+                this.emailService = emailService;
+                this.verificationTokenRepository = verificationTokenRepository;
         }
 
-        user.setAccountStatus(status);
-        userRepository.save(user);
+        @Transactional(readOnly = true)
+        @Cacheable(value = "users", key = "'all-' + #pageable.pageNumber + '-' + #pageable.pageSize")
+        public Page<UserResponse> getAllUsers(Pageable pageable) {
+                log.debug("Admin fetched users page={}", pageable.getPageNumber());
 
-        log.info("ADMIN_ACTION_SUCCESS: update_account_status | adminId={} | targetUserId={} | oldStatus={} | newStatus={}",
-                admin.getId(),
-                userId,
-                oldStatus,
-                status
-        );
+                return userRepository.findAll(pageable)
+                                .map(UserResponse::user);
+        }
 
-        return UserResponse.user(user);
-    }
+        @Transactional(readOnly = true)
+        @Cacheable(value = "users", key = "'role-' + #role + '-' + #pageable.pageNumber")
+        public Page<UserResponse> getUsersByRole(ApplicationUserRole role, Pageable pageable) {
+                log.debug("Admin fetching users by role: {}", role);
 
-    @Transactional
-    @CacheEvict(value = {"users", "user"}, allEntries = true)
-    public void forcePasswordReset(UUID userId) {
-        User admin = SecurityUtil.getCurrentUser(userRepository);
+                return userRepository.findByRole(role, pageable)
+                                .map(UserResponse::user);
+        }
 
-        log.info("ADMIN_ACTION: force_password_reset | adminId={} | adminEmail={} | targetUserId={}",
-                admin.getId(),
-                admin.getEmail(),
-                userId
-        );
+        @Transactional(readOnly = true)
+        @Cacheable(value = "users", key = "'search-' + #query + '-' + #pageable.pageNumber")
+        public Page<UserResponse> searchUsers(String query, Pageable pageable) {
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.warn("ADMIN_ACTION_FAILED: force_password_reset | adminId={} | targetUserId={} | reason=USER_NOT_FOUND",
-                            admin.getId(), userId);
-                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
-                });
+                log.debug("Admin user search query={}", query);
 
-        // Delete old tokens (clean state)
-        verificationTokenRepository.deleteByUser(user);
-        log.debug("Old verification tokens cleared | targetUserId={}", userId);
+                if (query == null || query.trim().isEmpty()) {
+                        log.warn("ADMIN_USER_SEARCH_FAILED | reason=EMPTY_QUERY | page={} | size={}",
+                                        pageable.getPageNumber(),
+                                        pageable.getPageSize());
 
-        // Generate token
-        String token = TokenGenerator.generateShortToken();
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Search query cannot be empty");
+                }
 
-        VerificationToken verificationToken = VerificationToken.builder()
-                .token(token)
-                .user(user)
-                .type(VerificationType.PASSWORD_RESET)
-                .expiryDate(LocalDateTime.now().plusMinutes(15))
-                .build();
+                query = query.trim();
 
-        verificationTokenRepository.save(verificationToken);
+                return userRepository.searchUsers(query, pageable)
+                                .map(UserResponse::user);
+        }
 
-        emailService.sendPasswordResetEmail(user.getEmail(), token);
+        @Transactional(readOnly = true)
+        @Cacheable(value = "user", key = "#userId")
+        public UserResponse getUserById(UUID userId) {
+                log.info("Admin fetching user: {}", userId);
 
-        log.info("ADMIN_ACTION_SUCCESS: force_password_reset | adminId={} | targetUserId={} | targetEmail={}",
-                admin.getId(),
-                userId,
-                user.getEmail()
-        );
-    }
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> {
+                                        log.error("User not found: {}", userId);
+                                        return new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+                                });
 
-    @Transactional
-    @CacheEvict(value = {"users", "user"}, allEntries = true)
-    public void deleteUser(UUID userId) {
-        User admin = SecurityUtil.getCurrentUser(userRepository);
+                return UserResponse.user(user);
+        }
 
-        log.info("ADMIN_ACTION: delete_user | adminId={} | adminEmail={} | targetUserId={}",
-                admin.getId(),
-                admin.getEmail(),
-                userId
-        );
+        @Transactional
+        @CacheEvict(value = { "users", "user" }, allEntries = true)
+        public UserResponse updateAccountStatus(UUID userId, AccountStatus status) {
+                User admin = SecurityUtil.getCurrentUser(userRepository);
 
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> {
-                    log.warn("ADMIN_ACTION_FAILED: delete_user | adminId={} | targetUserId={} | reason=USER_NOT_FOUND",
-                            admin.getId(), userId);
-                    return new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
-                });
+                log.info("ADMIN_ACTION: update_account_status | adminId={} | adminEmail={} | targetUserId={} | newStatus={}",
+                                admin.getId(),
+                                admin.getEmail(),
+                                userId,
+                                status);
 
-        userRepository.delete(user);
+                // Check if the user exists
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> {
+                                        log.warn("ADMIN_ACTION_FAILED: update_account_status | adminId={} | targetUserId={} | reason=USER_NOT_FOUND",
+                                                        admin.getId(), userId);
+                                        return new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+                                });
 
-        log.info("ADMIN_ACTION_SUCCESS: delete_user | adminId={} | targetUserId={} | targetEmail={}",
-                admin.getId(),
-                userId,
-                user.getEmail()
-        );
-    }
+                AccountStatus oldStatus = user.getAccountStatus();
+
+                // Check is the account status's match
+                if (oldStatus == status) {
+                        log.warn("ADMIN_ACTION_SKIPPED: update_account_status | adminId={} | targetUserId={} | reason=STATUS_UNCHANGED",
+                                        admin.getId(), userId);
+                        return UserResponse.user(user);
+                }
+
+                // Ensures that the account can only be activated or suspended
+                if (status != AccountStatus.ACTIVE && status != AccountStatus.SUSPENDED) {
+                        log.warn("ADMIN_ACTION_BLOCKED: update_account_status | adminId={} | targetUserId={} | invalidStatus={}",
+                                        admin.getId(), userId, status);
+                        throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                                        "Only ACTIVE or SUSPENDED status is allowed");
+                }
+
+                user.setAccountStatus(status);
+                userRepository.save(user);
+
+                log.info("ADMIN_ACTION_SUCCESS: update_account_status | adminId={} | targetUserId={} | oldStatus={} | newStatus={}",
+                                admin.getId(),
+                                userId,
+                                oldStatus,
+                                status);
+
+                return UserResponse.user(user);
+        }
+
+        @Transactional
+        @CacheEvict(value = { "users", "user" }, allEntries = true)
+        public void forcePasswordReset(UUID userId) {
+                User admin = SecurityUtil.getCurrentUser(userRepository);
+
+                log.info("ADMIN_ACTION: force_password_reset | adminId={} | adminEmail={} | targetUserId={}",
+                                admin.getId(),
+                                admin.getEmail(),
+                                userId);
+
+                // Check if the user exists
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> {
+                                        log.warn("ADMIN_ACTION_FAILED: force_password_reset | adminId={} | targetUserId={} | reason=USER_NOT_FOUND",
+                                                        admin.getId(), userId);
+                                        return new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+                                });
+
+                // Delete the users previous tokens
+                verificationTokenRepository.deleteByUser(user);
+                log.debug("Old verification tokens cleared | targetUserId={}", userId);
+
+                // Generate a new token for the user
+                String token = TokenGenerator.generateShortToken();
+                VerificationToken verificationToken = VerificationToken.builder()
+                                .token(token)
+                                .user(user)
+                                .type(VerificationType.PASSWORD_RESET)
+                                .expiryDate(LocalDateTime.now().plusMinutes(15))
+                                .targetEmail(user.getEmail())
+                                .build();
+
+                verificationTokenRepository.save(verificationToken);
+
+                // Email the new token to the user
+                emailService.sendPasswordResetEmail(user.getEmail(), token);
+                log.info("ADMIN_ACTION_SUCCESS: force_password_reset | adminId={} | targetUserId={} | targetEmail={}",
+                                admin.getId(),
+                                userId,
+                                user.getEmail());
+        }
+
+        @Transactional
+        @CacheEvict(value = { "users", "user" }, allEntries = true)
+        public void deleteUser(UUID userId) {
+                User admin = SecurityUtil.getCurrentUser(userRepository);
+
+                log.info("ADMIN_ACTION: delete_user | adminId={} | adminEmail={} | targetUserId={}",
+                                admin.getId(),
+                                admin.getEmail(),
+                                userId);
+
+                // Check if the user exists
+                User user = userRepository.findById(userId)
+                                .orElseThrow(() -> {
+                                        log.warn("ADMIN_ACTION_FAILED: delete_user | adminId={} | targetUserId={} | reason=USER_NOT_FOUND",
+                                                        admin.getId(), userId);
+                                        return new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found");
+                                });
+
+                userRepository.delete(user);
+                log.info("ADMIN_ACTION_SUCCESS: delete_user | adminId={} | targetUserId={} | targetEmail={}",
+                                admin.getId(),
+                                userId,
+                                user.getEmail());
+        }
 }

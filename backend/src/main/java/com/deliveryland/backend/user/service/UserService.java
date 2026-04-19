@@ -34,7 +34,8 @@ public class UserService {
     private final JwtService jwtService;
     private final VerificationTokenRepository verificationTokenRepository;
 
-    public UserService(UserRepository userRepository, EmailService emailService, JwtService jwtService, VerificationTokenRepository verificationTokenRepository) {
+    public UserService(UserRepository userRepository, EmailService emailService, JwtService jwtService,
+            VerificationTokenRepository verificationTokenRepository) {
         this.userRepository = userRepository;
         this.emailService = emailService;
         this.jwtService = jwtService;
@@ -96,6 +97,12 @@ public class UserService {
         String currentEmail = user.getEmail();
         log.info("User '{}' initiated email change request to '{}'", currentEmail, newEmail);
 
+        // Null checks
+        if (newEmail == null || newEmail.trim().isEmpty()) {
+            log.warn("User '{}' attempted email change with invalid empty email input", user.getEmail());
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Email cannot be empty");
+        }
+
         // Prevent changing to the same email
         if (currentEmail.equals(newEmail)) {
             log.warn("User '{}' attempted to change email to the same address '{}'", currentEmail, newEmail);
@@ -114,17 +121,6 @@ public class UserService {
             log.warn("User '{}' attempted to create a new email change request while one is still valid", currentEmail);
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
                     "A valid verification code already exists for this user.");
-        }
-
-        // Limit the number of changes per 7 days
-        long recentResets = verificationTokenRepository.findByUser(user).stream()
-                .filter(v -> v.getExpiryDate().isAfter(now.minusDays(7)) && !v.isUsed())
-                .count();
-
-        if (recentResets >= 3) {
-            log.warn("User '{}' exceeded the maximum number of email change requests in the last 7 days", currentEmail);
-            throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
-                    "You can only request an email change 3 times every 7 days.");
         }
 
         // Generate and save a new email verification entry
@@ -154,18 +150,19 @@ public class UserService {
         String currentEmail = user.getEmail();
         log.info("User '{}' attempting to verify an email change using token: {}", currentEmail, token);
 
+        // Null checks
+        if (token == null || token.trim().isEmpty()) {
+            log.warn("EMAIL_CHANGE_VERIFY_FAILED | userId={} | currentEmail={} | reason=EMPTY_TOKEN", user.getId(),
+                    currentEmail);
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token cannot be empty");
+        }
+
         // Load token details from database
         var verificationToken = verificationTokenRepository.findByUserAndToken(user, token)
                 .orElseThrow(() -> {
                     log.warn("Invalid or unknown token '{}' used by user '{}'", token, currentEmail);
                     return new ResponseStatusException(HttpStatus.NOT_FOUND, "Invalid or unknown token");
                 });
-
-        // Ensure that the token is not used
-        if (verificationToken.isUsed()) {
-            log.warn("User '{}' attempted to reuse token '{}'", currentEmail, token);
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Token already used");
-        }
 
         // Ensure the token is not expired
         if (verificationToken.getExpiryDate().isBefore(LocalDateTime.now())) {
@@ -178,13 +175,12 @@ public class UserService {
         user.setEmail(newEmail);
         userRepository.save(user);
 
-        verificationToken.setUsed(true);
-        verificationTokenRepository.save(verificationToken);
+        verificationTokenRepository.deleteByUser(user);
 
         // Generate a new user response
-        LoginResponse response = LoginResponse.buildResponse(token, 86400000, user);
+        LoginResponse response = LoginResponse.buildResponse(jwtService.generateToken(user), 86400000, user);
 
-        //userSocket.sendUpdatedUser(response.user());
+        // userSocket.sendUpdatedUser(response.user());
         log.info("Updated user '{}' broadcasted through WebSocket", currentEmail);
 
         return response;
